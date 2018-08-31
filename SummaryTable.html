@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_blank">
+    <style>
+    .status-missing{
+    background-color:Red;
+    color: white
+    }
+    input {
+    font-size: 8pt;
+    }
+    a.status-missing {
+    color: white;
+    }
+    .status-submitted{
+    background-color:Yellow;
+    color: Black      
+    }
+    a.status-submitted {
+    color: Black;
+    }
+    .status-rejected{
+    background-color: Orange;
+    }
+    a.status-rejected{
+    color: white;
+    }
+    .status-approved{
+    background-color: Green;
+    color: white
+    }
+    a.status-approved{
+    color: white;
+    }
+    .status-unknown{
+    background-color: Gray;
+    color: white
+    }
+    a.status-unknown{
+    color: white;
+    }
+    </style>
+    <script  type="text/javascript">        
+        var setStatus= function(msg) {
+            document.getElementById('status-message').innerHTML = msg;
+        };
+        
+        var sendComments=function(semester, course, section, cellId) {
+            setStatus([semester,course, section].join(','));
+            google.script.run.withFailureHandler(function(){
+                document.getElementById(cellId).innerHTML="Error!";
+            }).withSuccessHandler(function(cellId){
+                document.getElementById(cellId).innerHTML="Send Comments";            
+                document.getElementById(cellId).className="status-rejected";
+            }).sendCommentsCallback(semester, course, section, cellId);
+            return 0;
+        };
+        
+        var approve = function(semester, course, section, cellId) {
+            setStatus([semester,course, section].join(','));
+            google.script.run.withFailureHandler(function(){
+                document.getElementById(cellId).innerHTML="Error!";
+            }).withSuccessHandler(function(cellId){
+                document.getElementById(cellId).innerHTML="Approved";
+                document.getElementById(cellId).className="status-approved";
+            }).approveCallback(semester, course, section, cellId);
+            return 0;
+        };
+        
+    </script>
+  </head>
+  <body>
+<!--  <h1>Course Folders Summary</h1> -->
+  <? var ts = new Date();
+     for(var i in sheets) {
+         var sheet = sheets[i];
+         var dataset = AW.Dataset(sheet, 'Code');
+         var rows = dataset.selectRecords(function(r){return true;});
+         var semester = Config.semesters.getByName(sheet.getName()); 
+         if(semester) {?>
+         <table>
+           <tr><td><h2 align="center"><?=semester.name?></h2></td></tr>
+           <tr><td><table>
+             <tr><td>Code</td><td>Name</td><td>Tools</td>
+               <? Config.sections.forEach(function(section){ ?>
+               <td align="center"><?=section.code?><br/><?=section.name?></td>
+               <?})?></tr>
+           <?rows.forEach(function(row){
+             var course = Config.courses.getByCode(row.getValue('Code'));
+             if (course) { ?>
+               <tr><td><a href="<?=Folder(course.folderId).getUrl()?>"><?=course.code?></a></td>
+                 <td><?=course.name?></td>
+                 <td><a href="<?=course.prefilledFormUrl?>">Upload</a></td>
+                 <? Config.sections.forEach(function(section){ 
+                   var sectionStatusClass = statusClass(row.getValue(section.name));?>
+                   <td class="status-<?=sectionStatusClass?>" 
+                       id="s<?=course.code+section.code ?>">
+                     <?var formula = (row.getFormula(section.code)) 
+                       if(formula) { 
+                         var hyperlink = parseHyperlink(formula);
+                         ts.setTime(Date.parse(hyperlink.text))?>
+                         <a href="<?=hyperlink.url?>" 
+                            class="status-<?=sectionStatusClass?>">
+                           <?=formatTime(ts)?>
+                         </a> 
+                         <? if(editable && sectionStatusClass=='submitted') { ?><br/>
+                           <table width="100%"><tr>
+                             <td align="right"> 
+                               <input type="button" onclick="approve('<?=semester.name?>',
+                                 '<?=course.code ?>',
+                                 '<?=section.name?>',
+                                 's<?=course.code+section.code?>')" value="OK" />
+                             </td>
+                             <td align="left">
+                                <input type="button" onclick="sendComments('<?=semester.name?>',
+                                 '<?=course.code ?>',
+                                 '<?=section.name?>',
+                                 's<?=course.code+section.code?>')" value="No" />
+                             </td>
+                           </tr></table>
+                         <? } ?>
+                     <? } ?>
+                   </td>
+                 <?})?></tr>
+             <?}})?>
+           </table></td></tr>
+         </table>
+     <? } } ?>
+  <p> 
+  </p>  
+  <p>Last updated: <?=new Date()?></p>
+  <p id="status-message"> <p>
+  </body>
+</html>
+
+
